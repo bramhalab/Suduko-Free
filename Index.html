@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku Khel - Pro Version</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        .sudoku-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            border: 4px solid #1f2937;
+            background-color: #1f2937;
+            gap: 4px;
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+        }
+
+        .sudoku-box {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background-color: #1f2937;
+            border: 4px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        /* Success Box Styles */
+        .box-valid { 
+            border-color: #10b981 !important; 
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+        }
+        .box-valid .sudoku-cell {
+            background-color: #dcfce7 !important;
+            color: #166534 !important;
+        }
+
+        .box-invalid { border-color: #ef4444 !important; }
+
+        .sudoku-cell {
+            background-color: white;
+            width: 100%;
+            aspect-ratio: 1/1;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1e3a8a;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.1s ease, color 0.1s ease;
+            cursor: pointer;
+        }
+
+        .highlight-focus {
+            background-color: #e2e8f0 !important;
+        }
+
+        .sudoku-cell:focus {
+            background-color: #cbd5e1 !important; 
+        }
+
+        .sudoku-cell.highlight-match {
+            background-color: #fef08a !important;
+        }
+
+        .sudoku-cell.prefilled {
+            background-color: #f3f4f6;
+            color: #111827; 
+            cursor: not-allowed;
+        }
+
+        .text-error {
+            color: #dc2626 !important; 
+        }
+
+        #win-modal {
+            display: none;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center py-10 px-4 font-sans text-gray-800">
+
+    <div class="w-full max-w-md">
+        <h1 class="text-4xl font-extrabold text-center text-blue-800 mb-6 tracking-wide">Sudoku Khel</h1>
+        
+        <div class="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-md border border-gray-200">
+            <div class="flex items-center space-x-2 text-xl font-semibold text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span id="timer-display">00:00</span>
+            </div>
+            <button id="new-game-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-medium transition duration-200 shadow-sm active:scale-95">
+                Naya Khel
+            </button>
+        </div>
+
+        <div id="board" class="sudoku-grid shadow-lg rounded-lg overflow-hidden">
+            <!-- Grid through JS -->
+        </div>
+
+        <div id="error-message" class="text-red-600 text-center font-semibold mt-4 h-6 opacity-0 transition-opacity duration-300">
+            Kuch galat hai!
+        </div>
+
+        <div class="mt-4 flex justify-center">
+            <button id="check-btn" class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl font-bold text-lg transition duration-200 shadow-md active:scale-95 w-full">
+                Check Karein
+            </button>
+        </div>
+        
+        <div class="mt-6 flex flex-col gap-2 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Difficulty Level</p>
+            <div class="flex gap-2">
+                <button onclick="setDifficulty(25)" class="diff-btn flex-1 py-1 rounded bg-gray-100 hover:bg-blue-100 text-xs font-bold">Aasan</button>
+                <button onclick="setDifficulty(40)" class="diff-btn flex-1 py-1 rounded bg-blue-600 text-white text-xs font-bold">Normal</button>
+                <button onclick="setDifficulty(55)" class="diff-btn flex-1 py-1 rounded bg-gray-100 hover:bg-blue-100 text-xs font-bold">Mushkil</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Win Modal -->
+    <div id="win-modal" class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl text-center">
+            <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                <svg class="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-900 mb-2">Badhai Ho!</h3>
+            <p class="text-gray-600 mb-4 text-lg">Aapne Sudoku solve kar liya!</p>
+            <div class="bg-blue-50 p-4 rounded-lg mb-6">
+                <p class="text-sm text-blue-800 font-semibold uppercase tracking-wider">Aapka Samay</p>
+                <p id="final-time" class="text-3xl font-bold text-blue-600 mt-1">00:00</p>
+            </div>
+            <button id="play-again-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200">
+                Phir Se Khele
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let timerInterval;
+        let secondsElapsed = 0;
+        let isGameActive = false;
+        let solutionBoard = [];
+        let puzzleBoard = [];
+        let difficulty = 40; // Default Normal
+
+        const boardElement = document.getElementById('board');
+        const timerDisplay = document.getElementById('timer-display');
+        const checkBtn = document.getElementById('check-btn');
+        const newGameBtn = document.getElementById('new-game-btn');
+        const winModal = document.getElementById('win-modal');
+        const playAgainBtn = document.getElementById('play-again-btn');
+        const finalTimeDisplay = document.getElementById('final-time');
+        const errorMessage = document.getElementById('error-message');
+
+        function formatTime(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            secondsElapsed = 0;
+            timerDisplay.innerText = `00:00`;
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                timerDisplay.innerText = formatTime(secondsElapsed);
+            }, 1000);
+        }
+
+        function stopTimer() { clearInterval(timerInterval); }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // VALIDATION LOGIC
+        function isSafe(board, row, col, num) {
+            // Row check
+            for (let x = 0; x < 9; x++) if (board[row][x] === num) return false;
+            // Col check
+            for (let x = 0; x < 9; x++) if (board[x][col] === num) return false;
+            // 3x3 Box check
+            let startRow = row - row % 3, startCol = col - col % 3;
+            for (let i = 0; i < 3; i++)
+                for (let j = 0; j < 3; j++)
+                    if (board[i + startRow][j + startCol] === num) return false;
+            return true;
+        }
+
+        // BACKTRACKING GENERATOR
+        function fillBoard(board) {
+            for (let row = 0; row < 9; row++) {
+                for (let col = 0; col < 9; col++) {
+                    if (board[row][col] === 0) {
+                        let nums = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+                        for (let num of nums) {
+                            if (isSafe(board, row, col, num)) {
+                                board[row][col] = num;
+                                if (fillBoard(board)) return true;
+                                board[row][col] = 0;
+                            }
+                        }
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function generateFullBoard() {
+            let board = Array(9).fill().map(() => Array(9).fill(0));
+            fillBoard(board);
+            return board;
+        }
+
+        function createPuzzle(fullBoard, cellsToRemove) {
+            let puzzle = fullBoard.map(row => [...row]);
+            let removed = 0;
+            while (removed < cellsToRemove) {
+                let r = Math.floor(Math.random() * 9);
+                let c = Math.floor(Math.random() * 9);
+                if (puzzle[r][c] !== 0) {
+                    puzzle[r][c] = 0;
+                    removed++;
+                }
+            }
+            return puzzle;
+        }
+
+        function renderBoard() {
+            boardElement.innerHTML = '';
+            for (let bRow = 0; bRow < 3; bRow++) {
+                for (let bCol = 0; bCol < 3; bCol++) {
+                    const box = document.createElement('div');
+                    box.className = 'sudoku-box';
+                    box.id = `box-${bRow}-${bCol}`;
+                    box.dataset.boxRow = bRow;
+                    box.dataset.boxCol = bCol;
+                    
+                    for (let i = 0; i < 3; i++) {
+                        for (let j = 0; j < 3; j++) {
+                            const r = bRow * 3 + i;
+                            const c = bCol * 3 + j;
+                            const value = puzzleBoard[r][c];
+
+                            const input = document.createElement('input');
+                            input.type = 'text';
+                            input.inputMode = 'numeric';
+                            input.maxLength = 1;
+                            input.dataset.row = r;
+                            input.dataset.col = c;
+                            input.dataset.boxRow = bRow;
+                            input.dataset.boxCol = bCol;
+                            input.className = 'sudoku-cell';
+
+                            if (value !== 0) {
+                                input.value = value;
+                                input.readOnly = true;
+                                input.classList.add('prefilled');
+                            } else {
+                                input.addEventListener('input', (e) => handleInput(e, box));
+                            }
+                            
+                            input.addEventListener('focus', () => applyVisualStates(input));
+                            input.addEventListener('click', () => applyVisualStates(input));
+                            
+                            box.appendChild(input);
+                        }
+                    }
+                    boardElement.appendChild(box);
+                    checkBoxValidation(box);
+                }
+            }
+        }
+
+        function applyVisualStates(activeInput) {
+            const allCells = document.querySelectorAll('.sudoku-cell');
+            const currentRow = parseInt(activeInput.dataset.row);
+            const currentCol = parseInt(activeInput.dataset.col);
+            const currentBoxRow = parseInt(activeInput.dataset.boxRow);
+            const currentBoxCol = parseInt(activeInput.dataset.boxCol);
+            const activeValue = activeInput.value;
+
+            allCells.forEach(cell => {
+                const cellRow = parseInt(cell.dataset.row);
+                const cellCol = parseInt(cell.dataset.col);
+                const cellBoxRow = parseInt(cell.dataset.boxRow);
+                const cellBoxCol = parseInt(cell.dataset.boxCol);
+
+                cell.classList.remove('highlight-focus', 'highlight-match');
+
+                if (cellRow === currentRow || cellCol === currentCol || 
+                   (cellBoxRow === currentBoxRow && cellBoxCol === currentBoxCol)) {
+                    cell.classList.add('highlight-focus');
+                }
+
+                if (activeValue !== '' && cell.value === activeValue) {
+                    cell.classList.add('highlight-match');
+                }
+            });
+        }
+
+        function clearAllVisuals() {
+            document.querySelectorAll('.sudoku-cell').forEach(cell => {
+                cell.classList.remove('highlight-focus', 'highlight-match');
+            });
+        }
+
+        function updateAllErrors() {
+            const allCells = document.querySelectorAll('.sudoku-cell');
+            allCells.forEach(cell => cell.classList.remove('text-error'));
+
+            allCells.forEach(input => {
+                const val = input.value;
+                if (!val) return;
+
+                const r = parseInt(input.dataset.row);
+                const c = parseInt(input.dataset.col);
+                const bR = parseInt(input.dataset.boxRow);
+                const bC = parseInt(input.dataset.boxCol);
+
+                let isError = false;
+                allCells.forEach(other => {
+                    if (other === input || !other.value || other.value !== val) return;
+
+                    const oR = parseInt(other.dataset.row);
+                    const oC = parseInt(other.dataset.col);
+                    const obR = parseInt(other.dataset.boxRow);
+                    const obC = parseInt(other.dataset.boxCol);
+
+                    if (oR === r || oC === c || (obR === bR && obC === bC)) {
+                        isError = true;
+                    }
+                });
+
+                if (isError) input.classList.add('text-error');
+            });
+        }
+
+        function handleInput(e, box) {
+            const input = e.target;
+            if (!/^[1-9]$/.test(input.value) && input.value !== '') {
+                input.value = '';
+            }
+            
+            applyVisualStates(input);
+            updateAllErrors();
+            checkBoxValidation(box);
+            hideError();
+        }
+
+        function checkBoxValidation(box) {
+            const inputs = box.querySelectorAll('input');
+            let isFull = true;
+            let vals = [];
+
+            inputs.forEach(inp => {
+                if (!inp.value) isFull = false;
+                else vals.push(parseInt(inp.value));
+            });
+
+            if (isFull) {
+                // Check if all 1-9 are present
+                const isValidBox = new Set(vals).size === 9;
+                box.classList.toggle('box-valid', isValidBox);
+                box.classList.toggle('box-invalid', !isValidBox);
+            } else {
+                box.classList.remove('box-valid', 'box-invalid');
+            }
+        }
+
+        function setDifficulty(val) {
+            difficulty = val;
+            document.querySelectorAll('.diff-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-gray-100');
+            });
+            event.target.classList.add('bg-blue-600', 'text-white');
+            initGame();
+        }
+
+        function showError(msg) { 
+            errorMessage.innerText = msg;
+            errorMessage.style.opacity = '1'; 
+        }
+        function hideError() { errorMessage.style.opacity = '0'; }
+
+        function checkWin() {
+            let isWin = true;
+            let hasEmpty = false;
+            let hasErrors = document.querySelectorAll('.text-error').length > 0;
+            
+            const inputs = document.querySelectorAll('.sudoku-cell');
+            inputs.forEach(input => {
+                if (!input.value) {
+                    hasEmpty = true;
+                    isWin = false;
+                } else if (parseInt(input.value) !== solutionBoard[input.dataset.row][input.dataset.col]) {
+                    isWin = false;
+                }
+            });
+
+            if (isWin && !hasErrors) {
+                stopTimer();
+                isGameActive = false;
+                finalTimeDisplay.innerText = formatTime(secondsElapsed);
+                winModal.style.display = 'flex';
+                hideError();
+            } else {
+                showError(hasEmpty ? "Board abhi adhura hai!" : "Kuch galtiyan hain, check karein!");
+            }
+        }
+
+        function initGame() {
+            hideError();
+            winModal.style.display = 'none';
+            solutionBoard = generateFullBoard();
+            puzzleBoard = createPuzzle(solutionBoard, difficulty);
+            renderBoard();
+            startTimer();
+            isGameActive = true;
+        }
+
+        newGameBtn.addEventListener('click', initGame);
+        checkBtn.addEventListener('click', () => { if (isGameActive) checkWin(); });
+        playAgainBtn.addEventListener('click', initGame);
+
+        document.addEventListener('mousedown', (e) => {
+            if (!e.target.classList.contains('sudoku-cell')) {
+                clearAllVisuals();
+            }
+        });
+
+        initGame();
+    </script>
+</body>
+</html>
